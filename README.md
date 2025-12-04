@@ -101,12 +101,7 @@ pip install torch numpy pyBigWig requests joblib tqdm urllib3
 
 If you use TECSAS in your research, please cite:
 
-**Epigenetics is all you need: A Transformer to decode chromatin structural compartments from the epigenome**
-Esteban Dodero-Rojas*, Angel Mendieta*, Yao Fehlis, Nicolas Mayala, Vinícius G. Contessoto, José N. Onuchic
-
-```
-[Citation will be added upon publication]
-```
+Dodero-Rojas, E., Mendieta, A., Fehlis, Y., Mayala, N., Contessoto, V. G., & Onuchic, J. N. (2025). Epigenetics is all you need: A transformer to decode chromatin structural compartments from the epigenome. *PLOS Computational Biology*, *21*(12), e1012326. [https://doi.org/10.1371/journal.pcbi.1012326](https://doi.org/10.1371/journal.pcbi.1012326)
 
 ## License
 
