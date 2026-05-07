@@ -17,7 +17,7 @@ class data_process:
     def __init__(self, cell_line='GM12878', assembly='hg19',organism='human',signal_type='signal p-value',file_format='bigWig',
                 ref_cell_line_path='tmp_meta',ref_chrm_size=None,num_sub=None,cell_line_path=None,types_path=None,
                 histones=True,tf=False,atac=False,small_rna=False,total_rna=False,n_states=19,
-                extra_filter='',res=50,chromosome_sizes=None,require_ENCODE=False):
+                extra_filter='',res=50,chromosome_sizes=None,require_ENCODE=True):
         import pyBigWig as pybw
         self.pybw = pybw
         pt = os.path.dirname(os.path.realpath(__file__))
