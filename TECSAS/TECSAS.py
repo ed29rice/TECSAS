@@ -255,11 +255,12 @@ class data_process:
                 f.write(sr_number+' '+exp+'\n')
             #Load data from server
             try:
-                #Extract data from bed files
+                #Extract data from bed files. Use requests (follows the
+                #ENCODE -> S3 307 redirect cleanly) instead of urllib.
                 exp_url="https://www.encodeproject.org/files/"+text+"/@@download/"+text+".bed.gz"
-                response = urllib.request.urlopen(exp_url)
-                gunzip_response = gzip.GzipFile(fileobj=response)
-                content = gunzip_response.read()
+                resp = requests.get(exp_url, allow_redirects=True, timeout=300)
+                resp.raise_for_status()
+                content = gzip.decompress(resp.content)
                 data=np.array([i.split('\t') for i in content.decode().split('\n')[:-1]])
                 #Process replica for numbered chromosomes
                 for chr in range(1,len(chrm_size)):
