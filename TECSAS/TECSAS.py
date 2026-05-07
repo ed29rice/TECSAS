@@ -160,12 +160,44 @@ class data_process:
             with open(exp_path+'/exp_accession.txt', 'w') as f:
                 f.write(sr_number+' '+exp+'\n')
                 
-            #Load data from server
-            bw = self.pybw.open("https://www.encodeproject.org/files/"+text+"/@@download/"+text+".bigWig")
-            #Process replica for numbered chromosomes
-            for chr in range(1,len(chrm_size)):
-                signal = bw.stats("chr"+str(chr), type="mean", nBins=chrm_size[chr-1])
-                #Process signal and binning 
+            #Load data from server. ENCODE redirects file URLs to AWS S3
+            #(307 -> encode-public.s3.amazonaws.com), and pyBigWig's libcurl
+            #path does not follow that redirect reliably. Download to a temp
+            #file with requests (which follows redirects) and open locally.
+            import tempfile
+            url = "https://www.encodeproject.org/files/"+text+"/@@download/"+text+".bigWig"
+            tmp_fd, tmp_path = tempfile.mkstemp(suffix=".bigWig")
+            os.close(tmp_fd)
+            try:
+                with requests.get(url, stream=True, allow_redirects=True, timeout=300) as resp:
+                    resp.raise_for_status()
+                    with open(tmp_path, 'wb') as f:
+                        for chunk in resp.iter_content(chunk_size=1024*1024):
+                            f.write(chunk)
+                bw = self.pybw.open(tmp_path)
+                #Process replica for numbered chromosomes
+                for chr in range(1,len(chrm_size)):
+                    signal = bw.stats("chr"+str(chr), type="mean", nBins=chrm_size[chr-1])
+                    #Process signal and binning
+                    signal=np.array(signal)
+                    per=np.percentile(signal[signal!=None],95)
+                    per_min=np.percentile(signal[signal!=None],5)
+                    signal[signal==None]=per_min
+                    signal[signal<per_min]=per_min
+                    signal[signal>per]=per
+                    signal=signal-per_min
+                    signal=(signal-np.mean(signal))/np.std(signal)
+                    #Save data for each chromosome
+                    with open(exp_path+'/chr'+str(chr)+'.track', 'w') as f:
+                        f.write("#chromosome file number of beads\n"+str(chrm_size[chr-1]))
+                        f.write("#\n")
+                        f.write("#bead, signal, discrete signal\n")
+                        for i in range(len(signal)):
+                            f.write(str(i)+" "+str(signal[i])+" "+str(signal[i])+"\n")
+                #Process seperatly chromosome X
+                chr='X'
+                signal = bw.stats("chr"+chr, type="mean", nBins=chrm_size[-1])
+                #Process signal and binning
                 signal=np.array(signal)
                 per=np.percentile(signal[signal!=None],95)
                 per_min=np.percentile(signal[signal!=None],5)
@@ -174,32 +206,17 @@ class data_process:
                 signal[signal>per]=per
                 signal=signal-per_min
                 signal=(signal-np.mean(signal))/np.std(signal)
-                #Save data for each chromosome
-                with open(exp_path+'/chr'+str(chr)+'.track', 'w') as f:
-                    f.write("#chromosome file number of beads\n"+str(chrm_size[chr-1]))
+                #Save data
+                with open(exp_path+'/chr'+chr+'.track', 'w') as f:
+                    f.write("#chromosome file number of beads\n"+str(chrm_size[-1]))
                     f.write("#\n")
                     f.write("#bead, signal, discrete signal\n")
                     for i in range(len(signal)):
                         f.write(str(i)+" "+str(signal[i])+" "+str(signal[i])+"\n")
-            #Process seperatly chromosome X 
-            chr='X'
-            signal = bw.stats("chr"+chr, type="mean", nBins=chrm_size[-1])
-            #Process signal and binning
-            signal=np.array(signal)
-            per=np.percentile(signal[signal!=None],95)
-            per_min=np.percentile(signal[signal!=None],5)
-            signal[signal==None]=per_min
-            signal[signal<per_min]=per_min
-            signal[signal>per]=per
-            signal=signal-per_min
-            signal=(signal-np.mean(signal))/np.std(signal)
-            #Save data
-            with open(exp_path+'/chr'+chr+'.track', 'w') as f:
-                f.write("#chromosome file number of beads\n"+str(chrm_size[-1]))
-                f.write("#\n")
-                f.write("#bead, signal, discrete signal\n")
-                for i in range(len(signal)):
-                    f.write(str(i)+" "+str(signal[i])+" "+str(signal[i])+"\n")
+                bw.close()
+            finally:
+                try: os.remove(tmp_path)
+                except OSError: pass
             return exp
 
     def process_replica_bed(self,line,cell_line_path,chrm_size):
