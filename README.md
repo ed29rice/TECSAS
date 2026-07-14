@@ -31,6 +31,7 @@ For complete examples, see the [Tutorials](Tutorials/) directory.
   - `Load_model_K562_124_exp_25kbp.ipynb`: Load K562 model at 25kb resolution
   - `train_and_predict_HistMod_example.ipynb`: Training workflow using histone modifications
   - `train_and_predict_XADS_HistMod_RNASeq.ipynb`: Complete workflow for nuclear body association (LADs/NADs/SPADs) prediction using transfer learning
+  - `Finetune_subcompartments_new_cell_50kb.ipynb` / `finetune_subcompartments.py`: Fine-tune the pre-trained GM12878 encoder to predict subcompartments (A1–B3) for a **new cell type** using your own subcompartment labels (see "Fine-tune on a new cell type" below)
 - **Pre-trained models**: Model weights in [TECSAS/share/models/](TECSAS/share/models/)
   - `bv_GM12878_155.pt`: GM12878 model trained with 155 experiments at 50kbp resolution (75.8% overall accuracy)
 - **Reference data**: Subcompartment annotations and nuclear body association labels (LADs, NADs, SPADs) in [TECSAS/share/](TECSAS/share/)
@@ -137,6 +138,39 @@ If you want to retrain the model on your own data or a different cell line:
    ```
 
 See the [Tutorials/](Tutorials/) directory for complete training and prediction workflows.
+
+### Option C: Fine-tune on a new cell type (transfer learning)
+
+To generate subcompartment annotations (A1, A2, B1, B2, B3) for a cell type other than the
+bundled ones, you generally **do not need to train from scratch**. Because TECSAS predicts
+structure directly from the epigenome, a model trained on a cell line with Hi-C-derived labels
+transfers to other cell types. Two cases:
+
+- **No retraining** — if your target cell type has the same panel of experiments the pre-trained
+  model expects (155 experiments @ 50 kb for `bv_GM12878_155.pt`), process its tracks and predict
+  directly (Option A + `data_process.test_data` / `test_set`).
+- **Fine-tune** — if your target has a different experiment set/resolution, or you have your own
+  Hi-C-derived subcompartment labels and want cell-type-specific accuracy, fine-tune with transfer
+  learning: freeze the pre-trained GM12878 encoder and retrain only the output head. The encoder
+  and transformer operate per sequence position, so they transfer even when the number of
+  experiments differs; only a fresh head is trained.
+
+A ready-to-run workflow is provided:
+
+```bash
+python Tutorials/finetune_subcompartments.py \
+    --cell-line MyCell --labels-dir /path/to/my_labels_50kb \
+    --pretrained TECSAS/share/models/bv_GM12878_155.pt \
+    --output-dir ./finetune_MyCell --epochs 75
+```
+
+or use the notebook [`Tutorials/Finetune_subcompartments_new_cell_50kb.ipynb`](Tutorials/Finetune_subcompartments_new_cell_50kb.ipynb).
+The target cell line's epigenomic tracks are downloaded automatically from ENCODE; you supply the
+**training labels** as a directory of per-chromosome files named `chr{1..22}_beads.txt.original`,
+space-delimited with the subcompartment label (`A1/A2/B1/B2/B3`, `NA` allowed) in column 1, one row
+per 50 kb bin (matching `data_process.chrm_size`). The shipped `TECSAS/share/subcom_GM12878_50kb/`
+files are an example of this exact format. Outputs include the fine-tuned weights, a predictions
+`.txt`, and a colored `.bed` track for genome-browser visualization.
 
 ## Citation
 
